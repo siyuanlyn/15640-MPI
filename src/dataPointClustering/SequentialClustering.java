@@ -14,6 +14,12 @@ public class SequentialClustering {
 	private int clusterNum;
 	private List<Point> centroids;
 	private List<Point> oldCentroids;
+	double minX = Double.MAX_VALUE;
+	double maxX = Double.MIN_VALUE;
+	double minY = Double.MAX_VALUE;
+	double maxY = Double.MIN_VALUE;
+	Random rand;
+	
 	
 	public SequentialClustering(List<Point> dataPoints, int clusterNum){
 		this.dataPoints = dataPoints;
@@ -22,11 +28,6 @@ public class SequentialClustering {
 	
 	public void init(){
 		// generate the initial centroids
-		
-		double minX = Double.MAX_VALUE;
-		double maxX = Double.MIN_VALUE;
-		double minY = Double.MAX_VALUE;
-		double maxY = Double.MIN_VALUE;
 		for(Point p : dataPoints){
 			minX = Math.min(minX, p.getX());
 			maxX = Math.max(maxX, p.getX());
@@ -34,7 +35,7 @@ public class SequentialClustering {
 			maxY = Math.max(maxY, p.getY());
 		}
 		
-		Random rand = new Random(System.currentTimeMillis());
+		rand = new Random(System.currentTimeMillis());
 		centroids = new ArrayList<Point>();
 		oldCentroids = new ArrayList<Point>();
 		for(int i=0; i<clusterNum; i++){
@@ -87,6 +88,10 @@ public class SequentialClustering {
 	public void reCalculateMean(List<List<Point>> clusters){
 		for(int i=0; i<centroids.size(); i++){
 			if(clusters.get(i).size() == 0){
+				double x = minX + (maxX - minX) * rand.nextDouble();
+				double y = minY + (maxY - minY) * rand.nextDouble();
+				centroids.get(i).setX(x);
+				centroids.get(i).setY(y);
 				continue;
 			}
 			double sumX = 0;
@@ -102,12 +107,12 @@ public class SequentialClustering {
 	
 	public static void main(String[] args){
 		
-		List<Point> points = IO.parseInput("/Users/siyuanlyn/Desktop/DataGeneratorScripts/input/cluster.csv");
-		SequentialClustering dataPointClustering = new SequentialClustering(points, 3);
+		List<Point> points = IO.parseInput("/Users/siyuanlyn/git/15640-MPI/DataGeneratorScripts/input/cluster.csv");
+		SequentialClustering dataPointClustering = new SequentialClustering(points,5);
 		dataPointClustering.init();
 		List<List<Point>> res = dataPointClustering.cluster();
 		for(List<Point> l : res){
-			System.out.println(l.toString());
+			System.out.println(l.size() + " | " + l.toString());
 		}
 		IO.writeOut(res, "/Users/siyuanlyn/Desktop/output.txt");
 	}

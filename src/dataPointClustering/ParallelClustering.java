@@ -23,12 +23,17 @@ public class ParallelClustering {
 	
 	final static boolean DEBUG = true;
 	
-	// TODO create buffer
-	
 	private static String inputFilePath;
 	private static String outputFilePath;
 	private static int myrank;
 	private static int slaveNum;
+	
+	static double minX = Double.MAX_VALUE;
+	static double maxX = Double.MIN_VALUE;
+	static double minY = Double.MAX_VALUE;
+	static double maxY = Double.MIN_VALUE;
+	
+	static Random rand;
 	
 	public static void init(String[] args){
 		inputFilePath = args[0];
@@ -128,7 +133,7 @@ public class ParallelClustering {
 		for(int i=0; i<split_x.length; i++){
 			split.add(new Point(split_x[i], split_y[i]));
 		}
-		if(DEBUG) System.out.println("Rank: " + myrank + "split size: " + split.size());
+		if(DEBUG) System.out.println("Rank: " + myrank + " split size: " + split.size());
 		return split;
 	}
 	
@@ -226,6 +231,7 @@ public class ParallelClustering {
 		
 		// write the result to output file
 		if(res != null){
+			if(DEBUG) System.out.println("result cluster num: " + res.size());
 			IO.writeOut(res, outputFilePath);
 		} else {
 			System.err.println("no output generated");
@@ -251,6 +257,10 @@ public class ParallelClustering {
 	public static void reCalculateCentroids(List<List<Point>> res, List<Point> centroids){
 		for(int i=0; i<centroids.size(); i++){
 			if(res.get(i).size() == 0){
+				double x = minX + (maxX - minX) * rand.nextDouble();
+				double y = minY + (maxY - minY) * rand.nextDouble();
+				centroids.get(i).setX(x);
+				centroids.get(i).setY(y);
 				continue;
 			}
 			double sumX = 0;
@@ -329,29 +339,26 @@ public class ParallelClustering {
 	}
 	
 	public static List<List<Point>> split(int clusterNum, List<Point> rawDataPoints){
+		if(DEBUG) System.out.println("splitting.. slaveNum: " + slaveNum);
 		List<List<Point>> splits = new ArrayList<List<Point>>();
-		for(int i=0; i<clusterNum; i++){
+		for(int i=0; i<slaveNum; i++){
 			splits.add(new ArrayList<Point>());
 		}
 		for(int i=0; i<rawDataPoints.size(); i++){
-			splits.get(i%clusterNum).add(rawDataPoints.get(i));
+			splits.get(i%slaveNum).add(rawDataPoints.get(i));
 		}
 		return splits;
 	}
 	
 	public static List<Point> genCentroids(int clusterNum, List<Point> rawDataPoints){
 		List<Point> centroids = new ArrayList<Point>();
-		double minX = Double.MAX_VALUE;
-		double maxX = Double.MIN_VALUE;
-		double minY = Double.MAX_VALUE;
-		double maxY = Double.MIN_VALUE;
 		for(Point p : rawDataPoints){
 			minX = Math.min(minX, p.getX());
 			maxX = Math.max(maxX, p.getX());
 			minY = Math.min(minY, p.getY());
 			maxY = Math.max(maxY, p.getY());
 		}
-		Random rand = new Random(System.currentTimeMillis());
+		rand = new Random(System.currentTimeMillis());
 		for(int i=0; i<clusterNum; i++){
 			double x = minX + (maxX - minX) * rand.nextDouble();
 			double y = minY + (maxY - minY) * rand.nextDouble();
