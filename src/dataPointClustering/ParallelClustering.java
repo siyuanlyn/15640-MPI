@@ -28,6 +28,7 @@ public class ParallelClustering {
 	private static String inputFilePath;
 	private static String outputFilePath;
 	private static int myrank;
+	private static int slaveNum;
 	
 	public static void init(String[] args){
 		inputFilePath = args[0];
@@ -37,7 +38,6 @@ public class ParallelClustering {
 	}
 	
 	public static void slave(){
-		boolean jobFinished = false;
 		// try to get the buffer size first
 		int bufferSize = 0;
 		try {
@@ -52,8 +52,9 @@ public class ParallelClustering {
 		double[] buffer = new double[bufferSize];
 		try {
 			while(true){
+				boolean[] jobFinished = new boolean[1];
 				MPI.COMM_WORLD.Recv(jobFinished, 0, 1, MPI.BOOLEAN, MASTER_RANK, TAG_JOB_FINISHED);
-				if(jobFinished){
+				if(jobFinished[0]){
 					break;
 				}
 				// receive centroids from master
@@ -113,11 +114,12 @@ public class ParallelClustering {
 	}
 	
 	public static List<Point> getSplitFromMaster(double[] buffer) throws MPIException{
+		if(DEBUG) System.out.println("Rank: " + myrank + " get split from master");
 		List<Point> split = new ArrayList<Point>();
-		Status status = MPI.COMM_WORLD.Recv(buffer, 0, buffer.length, MPI.DOUBLE, MASTER_RANK, TAG_CENTROIDS_X);
+		Status status = MPI.COMM_WORLD.Recv(buffer, 0, buffer.length, MPI.DOUBLE, MASTER_RANK, TAG_SPLITS_X);
 		double[] split_x = new double[status.Get_count(MPI.DOUBLE)];
 		System.arraycopy(buffer, 0, split_x, 0, split_x.length);
-		status = MPI.COMM_WORLD.Recv(buffer, 0, buffer.length, MPI.DOUBLE, MASTER_RANK, TAG_CENTROIDS_Y);
+		status = MPI.COMM_WORLD.Recv(buffer, 0, buffer.length, MPI.DOUBLE, MASTER_RANK, TAG_SPLITS_Y);
 		double[] split_y = new double[status.Get_count(MPI.DOUBLE)];
 		System.arraycopy(buffer, 0, split_y, 0, split_y.length);
 		if(split_x.length != split_y.length){
@@ -126,6 +128,7 @@ public class ParallelClustering {
 		for(int i=0; i<split_x.length; i++){
 			split.add(new Point(split_x[i], split_y[i]));
 		}
+		if(DEBUG) System.out.println("Rank: " + myrank + "split size: " + split.size());
 		return split;
 	}
 	
@@ -148,10 +151,10 @@ public class ParallelClustering {
 	}
 	
 	public static int getBufferSizeFromMaster() throws MPIException{
-		int bufferSize = -1;
+		int[] bufferSize = new int[1];
 		MPI.COMM_WORLD.Recv(bufferSize, 0, 1, MPI.INT, MASTER_RANK, TAG_BUFFER_SIZE);
-		if(DEBUG) System.out.println("Rank: " + myrank + " get buffer size from master: " + bufferSize);
-		return bufferSize;
+		if(DEBUG) System.out.println("Rank: " + myrank + " get buffer size from master: " + bufferSize[0]);
+		return bufferSize[0];
 	}
 	
 	public static void master(String[] args) {
@@ -231,15 +234,17 @@ public class ParallelClustering {
 	}
 	
 	public static void sendBufferSizeToSlaves(int clusterNum, int bufferSize) throws MPIException{
-		for(int slaveID = 1; slaveID <= clusterNum; slaveID++){
-			MPI.COMM_WORLD.Send(bufferSize, 0, 1, MPI.INT, slaveID, TAG_BUFFER_SIZE);
-			if(DEBUG) System.out.println("send buffer size to slave" + slaveID);
+		for(int slaveID = 1; slaveID <= slaveNum; slaveID++){
+			int[] buffer = new int[]{bufferSize};
+			MPI.COMM_WORLD.Send(buffer, 0, 1, MPI.INT, slaveID, TAG_BUFFER_SIZE);
+			if(DEBUG) System.out.println("send buffer size " + bufferSize + " to slave" + slaveID);
 		}
 	}
 
 	public static void jobFinished(int clusterNum, boolean jobFinished) throws MPIException{
-		for (int slaveID = 1; slaveID <= clusterNum; slaveID++) {
-			MPI.COMM_WORLD.Send(jobFinished, 0, 1, MPI.BOOLEAN, slaveID, TAG_JOB_FINISHED);
+		for (int slaveID = 1; slaveID <= slaveNum; slaveID++) {
+			boolean[] buffer = new boolean[]{jobFinished};
+			MPI.COMM_WORLD.Send(buffer, 0, 1, MPI.BOOLEAN, slaveID, TAG_JOB_FINISHED);
 		}
 	}
 	
@@ -265,7 +270,7 @@ public class ParallelClustering {
 			res.add(new ArrayList<Point>());
 		}
 		
-		for(int slaveID=1; slaveID<=clusterNum; slaveID++){
+		for(int slaveID=1; slaveID<=slaveNum; slaveID++){
 			if(DEBUG) System.out.println("receive clustering result from slave" + slaveID);
 			for(int i=0; i<res.size(); i++){
 				Status status = MPI.COMM_WORLD.Recv(buffer, 0, buffer.length, MPI.DOUBLE, slaveID, TAG_SPLITS_X);
@@ -287,7 +292,7 @@ public class ParallelClustering {
 	}
 	
 	public static void sendSplitsToSlave(int clusterNum, List<List<Point>> splits) throws MPIException{
-		for(int slaveID=1; slaveID<=splits.size(); slaveID++){
+		for(int slaveID=1; slaveID<=slaveNum; slaveID++){
 			List<Point> split = splits.get(slaveID-1);
 			// convert List<Point> to two double[]
 			double[] x = new double[split.size()];
@@ -301,7 +306,7 @@ public class ParallelClustering {
 			// tag 2 for x, tag 3 for y
 			MPI.COMM_WORLD.Send(x, 0, x.length, MPI.DOUBLE, slaveID, TAG_SPLITS_X);
 			MPI.COMM_WORLD.Send(y, 0, y.length, MPI.DOUBLE, slaveID, TAG_SPLITS_Y);
-			if(DEBUG) System.out.println("send split to slave" + slaveID);
+			if(DEBUG) System.out.println("send split to slave" + slaveID + " split size: " + split.size());
 		}
 	}
 	
@@ -315,7 +320,7 @@ public class ParallelClustering {
 			y[i] = centroid.getY();
 		}
 		// send two arrays to all slaves;
-		for(int slaveID = 1; slaveID <= clusterNum; slaveID++){
+		for(int slaveID = 1; slaveID <= slaveNum; slaveID++){
 			// tag 0 for x, tag 1 for y
 			MPI.COMM_WORLD.Send(x, 0, x.length, MPI.DOUBLE, slaveID, TAG_CENTROIDS_X);
 			MPI.COMM_WORLD.Send(y, 0, y.length, MPI.DOUBLE, slaveID, TAG_CENTROIDS_Y);
@@ -356,8 +361,13 @@ public class ParallelClustering {
 	}
 	
 	public static void main(String[] args) throws MPIException{
+		if(args.length != 3){
+			System.err.println("wrong input parameters");
+			return;
+		}
 		MPI.Init(args);
 		myrank = MPI.COMM_WORLD.Rank();
+		slaveNum = MPI.COMM_WORLD.Size()-1;
 		if(myrank == 0){
 			// master node
 			master(args);
