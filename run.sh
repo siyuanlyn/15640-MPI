@@ -6,4 +6,15 @@ python ./DataGeneratorScripts/randomclustergen/generaterawdata.py -c $cluster_nu
 rm -rf ./bin/*
 mpijavac ./src/*/*.java -d ./bin
 cd bin
-mpirun -np 3 java dataPointClustering/ParallelClustering ../DataGeneratorScripts/input/cluster.csv ../DataGeneratorScripts/output/output.txt $cluster_num 
+echo ---------- Parallel Data Point Clustering ----------
+start=$(date +'%s')
+mpirun -np 4 java dataPointClustering/ParallelClustering ../DataGeneratorScripts/input/cluster.csv ../DataGeneratorScripts/output/parallel_dataPoint_output.txt $cluster_num 
+end=$(date +'%s')
+diff=$(( $end - $start))
+echo "parallel data point clustering took $diff seconds"
+echo ---------- Sequential Data Point Clustering ----------
+start=$(date +'%s')
+java dataPointClustering/SequentialClustering ../DataGeneratorScripts/input/cluster.csv ../DataGeneratorScripts/output/senquential_dataPoint_output.txt $cluster_num
+end=$(date +'%s')
+diff=$(( $end - $start))
+echo "sequential data point clustering took $diff seconds"

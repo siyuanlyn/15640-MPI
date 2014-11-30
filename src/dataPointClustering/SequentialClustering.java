@@ -65,7 +65,6 @@ public class SequentialClustering {
 				clusters.get(clusterIdx).add(p);
 			}
 			
-			System.out.println("mean: " + centroids.toString());
 			reCalculateMean(clusters);
 		}
 		return clusters;
@@ -106,14 +105,17 @@ public class SequentialClustering {
 	}
 	
 	public static void main(String[] args){
-		
-		List<Point> points = IO.parseInput("/Users/siyuanlyn/git/15640-MPI/DataGeneratorScripts/input/cluster.csv");
-		SequentialClustering dataPointClustering = new SequentialClustering(points,5);
+		if(args.length != 3){
+			System.err.println("wrong input parameters");
+			return;
+		}
+		String inputFilePath = args[0];
+		String outputFilePath = args[1];
+		int clusterNum = Integer.parseInt(args[2]);
+		List<Point> points = IO.parseInput(inputFilePath);
+		SequentialClustering dataPointClustering = new SequentialClustering(points, clusterNum);
 		dataPointClustering.init();
 		List<List<Point>> res = dataPointClustering.cluster();
-		for(List<Point> l : res){
-			System.out.println(l.size() + " | " + l.toString());
-		}
-		IO.writeOut(res, "/Users/siyuanlyn/Desktop/output.txt");
+		IO.writeOut(res, outputFilePath);
 	}
 }
