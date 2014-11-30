@@ -7,14 +7,16 @@ rm -rf ./bin/*
 mpijavac ./src/*/*.java -d ./bin
 cd bin
 echo ---------- Parallel Data Point Clustering ----------
-start=$(date +'%s')
-mpirun -np 4 java dataPointClustering/ParallelClustering ../DataGeneratorScripts/input/cluster.csv ../DataGeneratorScripts/output/parallel_dataPoint_output.txt $cluster_num 
-end=$(date +'%s')
-diff=$(( $end - $start))
-echo "parallel data point clustering took $diff seconds"
+start=$(date +'%s%N')/1000000
+mpirun -np 4 java dataPointClustering/ParallelClustering ../DataGeneratorScripts/input/cluster.csv ../DataGeneratorScripts/output/parallel_dataPoint_output.txt $cluster_num
+end=$(date +'%s%N')/1000000
+diff=$(($end - $start))
+echo "parallel data point clustering took $diff ms"
+echo "$(wc -l ../DataGeneratorScripts/output/parallel_dataPoint_output.txt | cut -d' ' -f1) coordinates has been written to output file" 
 echo ---------- Sequential Data Point Clustering ----------
-start=$(date +'%s')
-java dataPointClustering/SequentialClustering ../DataGeneratorScripts/input/cluster.csv ../DataGeneratorScripts/output/senquential_dataPoint_output.txt $cluster_num
-end=$(date +'%s')
-diff=$(( $end - $start))
-echo "sequential data point clustering took $diff seconds"
+start=$(date +'%s%N')/1000000
+java dataPointClustering/SequentialClustering ../DataGeneratorScripts/input/cluster.csv ../DataGeneratorScripts/output/sequential_dataPoint_output.txt $cluster_num
+end=$(date +'%s%N')/1000000
+diff=$(($end - $start))
+echo "sequential data point clustering took $diff ms"
+echo "$(wc -l ../DataGeneratorScripts/output/sequential_dataPoint_output.txt | cut -d' ' -f1) coordinates has been written to output file" 

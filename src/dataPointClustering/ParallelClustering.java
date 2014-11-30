@@ -21,7 +21,7 @@ public class ParallelClustering {
 	
 	final static int MASTER_RANK = 0;
 	
-	final static boolean DEBUG = true;
+	final static boolean DEBUG = false;
 	
 	private static String inputFilePath;
 	private static String outputFilePath;
