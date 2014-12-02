@@ -56,6 +56,8 @@ public class ParallelClustering {
 		}
 		double[] buffer = new double[bufferSize];
 		try {
+			// receive split from master
+			List<Point> split = getSplitFromMaster(buffer);
 			while(true){
 				boolean[] jobFinished = new boolean[1];
 				MPI.COMM_WORLD.Recv(jobFinished, 0, 1, MPI.BOOLEAN, MASTER_RANK, TAG_JOB_FINISHED);
@@ -64,8 +66,6 @@ public class ParallelClustering {
 				}
 				// receive centroids from master
 				List<Point> centroids = getCentroidsFromMaster(buffer);
-				// receive splits from master
-				List<Point> split = getSplitFromMaster(buffer);
 				// clustering
 				List<List<Point>> clusters = cluster(centroids, split);
 				// send result back to master
@@ -184,6 +184,13 @@ public class ParallelClustering {
 		// split chunks
 		List<List<Point>> splits = split(clusterNum, rawDataPoints);
 		List<List<Point>> res = null;
+		// send splits to slave
+		try {
+			sendSplitsToSlave(clusterNum, splits);
+		} catch (MPIException e) {
+			System.err.println("send splits to slaves failed");
+			e.printStackTrace();
+		}
 		while(!oldCentroids.equals(centroids)){
 			// send job continue message to slaves
 			try {
@@ -202,13 +209,6 @@ public class ParallelClustering {
 				sendCentroidsToSlave(clusterNum, centroids);
 			} catch (MPIException e) {
 				System.err.println("send centroids to slaves failed");
-				e.printStackTrace();
-			}
-			// send splits to slave
-			try {
-				sendSplitsToSlave(clusterNum, splits);
-			} catch (MPIException e) {
-				System.err.println("send splits to slaves failed");
 				e.printStackTrace();
 			}
 			// get clustering result from slave
